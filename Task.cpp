@@ -1,16 +1,9 @@
-
-#include <stdint.h>
-#include <stdlib.h>
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
-#include <iostream>
-#include <thread>
-#include <sys/types.h>
-#include <dirent.h>
-#include <mutex>
-#include <vector>
+#include "Task.h"
+#include "ThreadPool.h"
 
 using namespace std;
 enum allocation_type{
@@ -27,13 +20,11 @@ typedef  struct {
 }Image;
 
 
-
 void Image_load(Image *img,const char *fname);
 void Image_create(Image *img, int width, int height, int channels,bool zeroed);
 void Image_save(const Image *img, const char *fname);
 void Image_free(Image *img);
 void do_something(const Image *orig, Image *conv);
-
 
 
 void Image_load(Image *img, const char *fname) {
@@ -86,61 +77,32 @@ void do_something(const Image *orig, Image *conv){
 }
 
 
-class Task{
-private:
-    int _index;
-    char * _img;
-public:
-    Task( char *img, int index) : _img(img), _index(index){}
+Task::Task(char *img, int index) : _img(img), _index(index){}
 
-    void run(){
-        char path[] = "images\\";
-        strcat(path, _img);
-        Image old_image;
-        Image_load(&old_image, path);
-        Image conv_image;
-        //convert the img
-        do_something(&old_image, &conv_image);
-        //save the converted img as new png file
-        char filename[12];
-        char idx[2];
-        strcpy(filename,"image_");
-        snprintf(idx,2, "%d", _index);
-        strcat(filename, idx);
-        strcat(filename,".png");
-        Image_save(&conv_image, filename);
-        //free space
-        Image_free(&old_image);
-        Image_free(&conv_image);
-    }
-
-
-};
-
-int main() {
-    //create task for each img in tasks_vector
-    DIR *dir = opendir("C:\\Users\\Naama Levy\\Desktop\\personal\\jobs\\greeneye\\cpp_project\\cmake-build-debug\\images");
-
-    int index = 1;
-    struct dirent *ent;
-    while ((ent = readdir(dir)) != NULL) {
-        if (ent->d_type == DT_REG) {
-            cout << ent->d_name << "\n";
-            char path[] = "images\\";
-            char *name = ent->d_name;
-            strcat(path, name);
-            Task *task = new Task(ent->d_name, index);
-            thread th(&Task::run, task);
-            index++;
-            th.join();
-        }
-    }
-
-
-    return 0;
+thread Task::run(){
+    char path[] = "images\\";
+    strcat(path, _img);
+    Image old_image;
+    Image_load(&old_image, path);
+    Image conv_image;
+    //convert the img
+    do_something(&old_image, &conv_image);
+    //save the converted img as new png file
+    char filename[12];
+    char idx[2];
+    strcpy(filename,"image_");
+    snprintf(idx,2, "%d", _index);
+    strcat(filename, idx);
+    strcat(filename,".png");
+    Image_save(&conv_image, filename);
+    //free space
+    Image_free(&old_image);
+    Image_free(&conv_image);
+    cout << _index << ":image saved\n";
 }
 
+bool Task::last_one() {
+    return (_index == 10);
+}
 
-
-
-
+Task::~Task() = default;
